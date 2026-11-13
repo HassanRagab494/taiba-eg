@@ -1,6 +1,6 @@
-import { readAdminSession, verifyAdminSessionToken } from '../../lib/adminAuth';
-import type { AdminApiRequest } from '../../lib/adminAuth';
-import { sendJson } from '../../lib/adminAuth';
+import { readAdminSession, verifyAdminSessionToken } from '../../lib/adminAuth.js';
+import type { AdminApiRequest } from '../../lib/adminAuth.js';
+import { sendJson } from '../../lib/adminAuth.js';
 import type { ServerResponse } from 'node:http';
 
 export default function handler(req: AdminApiRequest, res: ServerResponse): void {

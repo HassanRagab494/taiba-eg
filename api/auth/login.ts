@@ -1,4 +1,4 @@
-import type { AdminApiRequest } from '../../lib/adminAuth';
+import type { AdminApiRequest } from '../../lib/adminAuth.js';
 import {
   createAdminSessionCookie,
   createAdminSessionToken,
@@ -6,7 +6,7 @@ import {
   readJsonBody,
   sendJson,
   verifyAdminPassword,
-} from '../../lib/adminAuth';
+} from '../../lib/adminAuth.js';
 
 import type { ServerResponse } from 'node:http';
 

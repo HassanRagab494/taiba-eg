@@ -1,6 +1,6 @@
-import { clearAdminSessionCookie } from '../../lib/adminAuth';
-import { isSecureRequest, sendJson } from '../../lib/adminAuth';
-import type { AdminApiRequest } from '../../lib/adminAuth';
+import { clearAdminSessionCookie } from '../../lib/adminAuth.js';
+import { isSecureRequest, sendJson } from '../../lib/adminAuth.js';
+import type { AdminApiRequest } from '../../lib/adminAuth.js';
 import type { ServerResponse } from 'node:http';
 
 export default function handler(req: AdminApiRequest, res: ServerResponse): void {
