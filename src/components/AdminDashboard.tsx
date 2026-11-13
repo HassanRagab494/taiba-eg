@@ -232,8 +232,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
         showToast(language === 'ar' ? 'تم تسجيل الدخول بنجاح كمدير للمنصة' : 'Signed in successfully as Administrator');
       } else if (response.status === 503) {
         setLoginError(language === 'ar' ? 'كلمة مرور الإدارة غير مضبوطة على Vercel بعد.' : 'The admin password has not been configured in Vercel yet.');
-      } else {
+      } else if (response.status === 401) {
         setLoginError(language === 'ar' ? 'كلمة المرور غير صحيحة.' : 'Incorrect password.');
+      } else {
+        setLoginError(language === 'ar' ? 'خدمة تسجيل الدخول فيها مشكلة. حاول مرة أخرى لاحقًا.' : 'The sign-in service returned an error. Please try again later.');
       }
     } catch {
       setLoginError(language === 'ar' ? 'تعذر الاتصال بخدمة تسجيل الدخول.' : 'Could not reach the sign-in service.');

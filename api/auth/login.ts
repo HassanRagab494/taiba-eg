@@ -1,26 +1,43 @@
-import { createAdminSessionCookie, createAdminSessionToken, verifyAdminPassword } from '../../lib/adminAuth';
+import type { AdminApiRequest } from '../../lib/adminAuth';
+import {
+  createAdminSessionCookie,
+  createAdminSessionToken,
+  isSecureRequest,
+  readJsonBody,
+  sendJson,
+  verifyAdminPassword,
+} from '../../lib/adminAuth';
 
-export async function POST(request: Request): Promise<Response> {
-  const password = process.env.ADMIN_PASSWORD;
-  if (!password) {
-    return Response.json({ success: false, message: 'Admin password is not configured.' }, { status: 503 });
+import type { ServerResponse } from 'node:http';
+
+export default async function handler(req: AdminApiRequest, res: ServerResponse): Promise<void> {
+  if (req.method !== 'POST') {
+    sendJson(res, 405, { success: false, message: 'Method not allowed.' }, { Allow: 'POST' });
+    return;
   }
 
-  let body: { password?: unknown };
+  const password = process.env.ADMIN_PASSWORD;
+  if (!password) {
+    sendJson(res, 503, { success: false, message: 'Admin password is not configured.' });
+    return;
+  }
+
+  let body: Record<string, unknown>;
   try {
-    body = await request.json() as { password?: unknown };
+    body = await readJsonBody(req);
   } catch {
-    return Response.json({ success: false }, { status: 400 });
+    sendJson(res, 400, { success: false, message: 'Invalid JSON body.' });
+    return;
   }
 
   if (!verifyAdminPassword(body.password, password)) {
-    return Response.json({ success: false }, { status: 401 });
+    sendJson(res, 401, { success: false });
+    return;
   }
 
-  const secure = new URL(request.url).protocol === 'https:';
   const token = createAdminSessionToken(password);
-  return Response.json(
-    { success: true },
-    { headers: { 'Set-Cookie': createAdminSessionCookie(token, secure), 'Cache-Control': 'no-store' } },
-  );
+  sendJson(res, 200, { success: true }, {
+    'Set-Cookie': createAdminSessionCookie(token, isSecureRequest(req)),
+    'Cache-Control': 'no-store',
+  });
 }

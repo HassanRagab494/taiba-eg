@@ -1,9 +1,17 @@
 import { readAdminSession, verifyAdminSessionToken } from '../../lib/adminAuth';
+import type { AdminApiRequest } from '../../lib/adminAuth';
+import { sendJson } from '../../lib/adminAuth';
+import type { ServerResponse } from 'node:http';
 
-export function GET(request: Request): Response {
+export default function handler(req: AdminApiRequest, res: ServerResponse): void {
+  if (req.method !== 'GET') {
+    sendJson(res, 405, { authenticated: false, message: 'Method not allowed.' }, { Allow: 'GET' });
+    return;
+  }
+
   const authenticated = verifyAdminSessionToken(
-    readAdminSession(request.headers.get('cookie')),
+    readAdminSession(req.headers.cookie),
     process.env.ADMIN_PASSWORD,
   );
-  return Response.json({ authenticated }, { headers: { 'Cache-Control': 'no-store' } });
+  sendJson(res, 200, { authenticated }, { 'Cache-Control': 'no-store' });
 }
