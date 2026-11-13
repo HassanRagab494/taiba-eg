@@ -1,12 +1,20 @@
-# Taiba Egypt Website
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+</div>
 
-A React and Vite experience for exploring Egypt's destinations, culture, attractions, events, and travel planning.
+# Run and deploy your AI Studio app
 
-## Run locally
+This contains everything you need to run your app locally.
 
-1. Install Node.js.
-2. Install dependencies with `npm install`.
-3. Copy `.env.example` to `.env.local` and set your Gemini API key if you use Gemini features.
-4. Start the app with `npm run dev`.
+View your app in AI Studio: https://ai.studio/apps/a2d7d2ff-cc9b-40ef-929b-70815cacaaf5
 
-The `.env.local` file is ignored by Git. Never commit API keys.
+## Run Locally
+
+**Prerequisites:**  Node.js
+
+
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`
