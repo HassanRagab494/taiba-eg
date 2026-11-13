@@ -225,8 +225,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const [isAdmin, setIsAdminState] = useState<boolean>(() => {
-    return localStorage.getItem(STORAGE_KEYS.AUTH) === 'true';
+    return false;
   });
+
+  useEffect(() => {
+    let active = true;
+    localStorage.removeItem(STORAGE_KEYS.AUTH);
+
+    fetch('/api/auth/session', { cache: 'no-store' })
+      .then((response) => (response.ok ? response.json() : { authenticated: false }))
+      .then((result: { authenticated?: boolean }) => {
+        if (active) setIsAdminState(result.authenticated === true);
+      })
+      .catch(() => {
+        if (active) setIsAdminState(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const [activeModal, setActiveModal] = useState<{
     type: 'treasure' | 'experience' | 'article' | 'hotel' | 'restaurant';
@@ -299,7 +317,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const setIsAdmin = (val: boolean) => {
     setIsAdminState(val);
-    localStorage.setItem(STORAGE_KEYS.AUTH, val ? 'true' : 'false');
+    if (!val) localStorage.removeItem(STORAGE_KEYS.AUTH);
   };
 
   // Sync state to LocalStorage

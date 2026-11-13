@@ -2,11 +2,7 @@ import React from 'react';
 import { useData } from '../context/DataContext';
 import { Shield, Phone, Mail, MapPin, Compass } from 'lucide-react';
 
-interface FooterProps {
-  onNavigateAdmin?: () => void;
-}
-
-export const Footer: React.FC<FooterProps> = ({ onNavigateAdmin }) => {
+export const Footer: React.FC = () => {
   const { language, t, settings, navigateToTab } = useData();
 
   return (
@@ -108,21 +104,9 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateAdmin }) => {
 
         </div>
 
-        {/* Bottom Bar with Admin Portal Access */}
+        {/* Bottom Bar */}
         <div className="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-stone-400">
           <p className="font-cairo text-stone-400">{t('copyright')}</p>
-
-          <div className="flex items-center gap-4">
-            {/* The Dedicated Admin Portal Link at very bottom */}
-            <button
-              onClick={onNavigateAdmin}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-stone-300 hover:text-[#C99A42] border border-white/10 hover:border-[#C99A42]/50 transition-all cursor-pointer font-cairo font-semibold text-xs shadow-xs"
-              title={language === 'ar' ? 'الدخول إلى لوحة إدارة المحتوى والتحكم' : 'Open Content Management Admin Portal'}
-            >
-              <Shield className="w-3.5 h-3.5 text-[#C99A42]" />
-              <span>{t('admin_portal')}</span>
-            </button>
-          </div>
         </div>
 
       </div>

@@ -3,8 +3,16 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import {
+  clearAdminSessionCookie,
+  createAdminSessionCookie,
+  createAdminSessionToken,
+  readAdminSession,
+  verifyAdminPassword,
+  verifyAdminSessionToken,
+} from './lib/adminAuth';
 
-dotenv.config();
+dotenv.config({ path: '.env.local' });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,22 +54,32 @@ app.get('/api/health', (_req: Request, res: Response) => {
 
 // Admin login authentication
 app.post('/api/auth/login', (req: Request, res: Response) => {
-  const { email, password } = req.body;
-  if (email === 'admin@taiba.eg' && password === 'TaibaLuxor2026!') {
-    return res.json({
-      success: true,
-      token: 'jwt_taiba_admin_verified_' + Date.now(),
-      user: {
-        email: 'admin@taiba.eg',
-        name: 'Taiba Administrator',
-        role: 'super_admin',
-      },
-    });
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminPassword) {
+    return res.status(503).json({ success: false, message: 'Admin password is not configured.' });
   }
-  return res.status(401).json({
-    success: false,
-    message: 'Invalid credentials. Use admin@taiba.eg / TaibaLuxor2026!',
-  });
+
+  if (!verifyAdminPassword(req.body?.password, adminPassword)) {
+    return res.status(401).json({ success: false });
+  }
+
+  const secure = req.secure || req.get('x-forwarded-proto') === 'https';
+  res.setHeader('Set-Cookie', createAdminSessionCookie(createAdminSessionToken(adminPassword), secure));
+  return res.setHeader('Cache-Control', 'no-store').json({ success: true });
+});
+
+app.get('/api/auth/session', (req: Request, res: Response) => {
+  const authenticated = verifyAdminSessionToken(
+    readAdminSession(req.headers.cookie),
+    process.env.ADMIN_PASSWORD,
+  );
+  return res.setHeader('Cache-Control', 'no-store').json({ authenticated });
+});
+
+app.post('/api/auth/logout', (req: Request, res: Response) => {
+  const secure = req.secure || req.get('x-forwarded-proto') === 'https';
+  res.setHeader('Set-Cookie', clearAdminSessionCookie(secure));
+  return res.setHeader('Cache-Control', 'no-store').json({ success: true });
 });
 
 // Database state retrieval
@@ -79,6 +97,10 @@ app.get('/api/state', (_req: Request, res: Response) => {
 
 // Database state persistence
 app.post('/api/state', (req: Request, res: Response) => {
+  if (!verifyAdminSessionToken(readAdminSession(req.headers.cookie), process.env.ADMIN_PASSWORD)) {
+    return res.status(401).json({ success: false, error: 'Authentication required.' });
+  }
+
   try {
     fs.writeFileSync(DB_FILE, JSON.stringify(req.body, null, 2), 'utf8');
     res.json({ success: true, savedAt: new Date().toISOString() });
@@ -89,6 +111,10 @@ app.post('/api/state', (req: Request, res: Response) => {
 
 // File upload endpoint
 app.post('/api/upload', (req: Request, res: Response) => {
+  if (!verifyAdminSessionToken(readAdminSession(req.headers.cookie), process.env.ADMIN_PASSWORD)) {
+    return res.status(401).json({ success: false, error: 'Authentication required.' });
+  }
+
   const { fileName, fileData, mimeType } = req.body;
   if (!fileData) {
     return res.status(400).json({ success: false, error: 'No file data received' });

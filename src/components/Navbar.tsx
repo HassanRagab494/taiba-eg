@@ -19,12 +19,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 
-interface NavbarProps {
-  onNavigateAdmin?: () => void;
-  isAdminView?: boolean;
-}
-
-export const Navbar: React.FC<NavbarProps> = ({ onNavigateAdmin, isAdminView }) => {
+export const Navbar: React.FC = () => {
   const { language, setLanguage, t, settings, customRoute, navigateToTab, theme, toggleTheme } = useData();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);

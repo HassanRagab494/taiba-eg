@@ -50,12 +50,6 @@ const AppContent: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const openAdmin = () => {
-    setIsAdminView(true);
-    window.location.hash = 'admin';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   const closeAdmin = () => {
     setIsAdminView(false);
     if (window.location.hash === '#admin') {
@@ -92,7 +86,7 @@ const AppContent: React.FC = () => {
       </a>
 
       {/* Navigation Bar */}
-      <Navbar onNavigateAdmin={openAdmin} isAdminView={false} />
+      <Navbar />
 
       {/* Main Content Sections - Compact Unified Hubs Architecture */}
       <main id="main-content" tabIndex={-1} className="focus:outline-hidden flex-1">
@@ -106,7 +100,7 @@ const AppContent: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <Footer onNavigateAdmin={openAdmin} />
+      <Footer />
 
       {/* Modals */}
       {selectedTreasure && (

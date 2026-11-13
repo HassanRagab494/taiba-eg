@@ -174,9 +174,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
   } = useData();
 
   // Login form state
-  const [loginEmail, setLoginEmail] = useState('admin@taiba.eg');
-  const [loginPassword, setLoginPassword] = useState('TaibaLuxor2026!');
+  const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Active admin tab
   const [activeTab, setActiveTab] = useState<
@@ -214,14 +214,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loginEmail === 'admin@taiba.eg' && loginPassword === 'TaibaLuxor2026!') {
-      setIsAdmin(true);
-      setLoginError('');
-      showToast(language === 'ar' ? 'تم تسجيل الدخول بنجاح كمدير للمنصة' : 'Signed in successfully as Administrator');
-    } else {
-      setLoginError(language === 'ar' ? 'بيانات غير صحيحة. يرجى استخدام: admin@taiba.eg / TaibaLuxor2026!' : 'Invalid credentials. Use admin@taiba.eg / TaibaLuxor2026!');
+    setIsLoggingIn(true);
+    setLoginError('');
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: loginPassword }),
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (response.ok && result.success === true) {
+        setIsAdmin(true);
+        setLoginPassword('');
+        showToast(language === 'ar' ? 'تم تسجيل الدخول بنجاح كمدير للمنصة' : 'Signed in successfully as Administrator');
+      } else if (response.status === 503) {
+        setLoginError(language === 'ar' ? 'كلمة مرور الإدارة غير مضبوطة على Vercel بعد.' : 'The admin password has not been configured in Vercel yet.');
+      } else {
+        setLoginError(language === 'ar' ? 'كلمة المرور غير صحيحة.' : 'Incorrect password.');
+      }
+    } catch {
+      setLoginError(language === 'ar' ? 'تعذر الاتصال بخدمة تسجيل الدخول.' : 'Could not reach the sign-in service.');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } finally {
+      setIsAdmin(false);
+      onBackToSite();
     }
   };
 
@@ -379,19 +405,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1">
               <label className="text-xs font-semibold text-stone-700 block">
-                {language === 'ar' ? 'البريد الإلكتروني' : 'Admin Email'}
-              </label>
-              <input
-                type="email"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                required
-                className="w-full bg-[#F7F2E8]/50 border border-[#E8DFD0] rounded-xl px-4 py-2.5 text-xs text-[#183B56] focus:outline-hidden focus:border-[#C99A42]"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-stone-700 block">
                 {language === 'ar' ? 'كلمة المرور' : 'Password'}
               </label>
               <input
@@ -399,6 +412,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
                 required
+                autoComplete="current-password"
                 className="w-full bg-[#F7F2E8]/50 border border-[#E8DFD0] rounded-xl px-4 py-2.5 text-xs text-[#183B56] focus:outline-hidden focus:border-[#C99A42]"
               />
             </div>
@@ -413,7 +427,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
               type="submit"
               className="w-full py-3 bg-[#183B56] hover:bg-[#102738] text-white font-semibold text-xs rounded-xl transition-colors cursor-pointer shadow-xs"
             >
-              {language === 'ar' ? 'تسجيل الدخول للوحة التحكم' : 'Sign In'}
+              {isLoggingIn ? (language === 'ar' ? 'جارٍ التحقق...' : 'Checking...') : (language === 'ar' ? 'تسجيل الدخول للوحة التحكم' : 'Sign In')}
             </button>
           </form>
 
@@ -424,7 +438,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
             >
               ← {language === 'ar' ? 'العودة للموقع' : 'Return to Site'}
             </button>
-            <span className="font-mono text-[10px] text-stone-400">admin@taiba.eg</span>
+            <span className="text-[10px] text-stone-400">{language === 'ar' ? 'دخول مخصص للإدارة' : 'Administrator access'}</span>
           </div>
         </div>
       </div>
@@ -461,7 +475,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
 
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setIsAdmin(false)}
+              onClick={handleLogout}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-200 hover:bg-rose-50 hover:text-rose-600 text-xs text-stone-600 transition-colors cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
