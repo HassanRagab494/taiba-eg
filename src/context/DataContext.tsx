@@ -227,6 +227,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAdmin, setIsAdminState] = useState<boolean>(() => false);
   const [sharedDataReady, setSharedDataReady] = useState(false);
   const skipInitialSharedSave = useRef(false);
+  const pendingSharedSave = useRef(false);
   const lastSharedSnapshot = useRef('');
 
   const snapshotOf = (data: Record<string, any>) => JSON.stringify({
@@ -276,14 +277,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
-    if (!sharedDataReady || isAdmin) return;
+    if (!sharedDataReady) return;
     const refresh = async () => {
       try {
         const response = await fetch('/api/state', { cache: 'no-store' });
         if (!response.ok) return;
         const data = await response.json();
         const snapshot = snapshotOf(data);
-        if (data.hasSavedData && snapshot !== lastSharedSnapshot.current) applySharedData(data);
+        if (data.hasSavedData && snapshot !== lastSharedSnapshot.current && !pendingSharedSave.current) applySharedData(data);
       } catch { /* Keep the last loaded public content while offline. */ }
     };
     const timer = window.setInterval(refresh, 10000);
@@ -390,6 +391,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     const payload = { treasures, experiences, restaurants, hotels, articles, events, gallery, media, settings };
+    pendingSharedSave.current = true;
     const timer = window.setTimeout(() => {
       fetch('/api/state', {
         method: 'POST',
@@ -398,7 +400,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }).then((response) => {
         if (!response.ok) throw new Error('Shared site data save failed');
         lastSharedSnapshot.current = snapshotOf(payload);
-      }).catch((error) => console.error('Could not save shared site data', error));
+        pendingSharedSave.current = false;
+      }).catch((error) => {
+        pendingSharedSave.current = false;
+        console.error('Could not save shared site data', error);
+      });
     }, 500);
     return () => window.clearTimeout(timer);
   }, [sharedDataReady, isAdmin, treasures, experiences, restaurants, hotels, articles, events, gallery, media, settings]);
