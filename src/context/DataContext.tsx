@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   Language,
   Treasure,
@@ -224,9 +224,59 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   });
 
-  const [isAdmin, setIsAdminState] = useState<boolean>(() => {
-    return false;
-  });
+  const [isAdmin, setIsAdminState] = useState<boolean>(() => false);
+  const [sharedDataReady, setSharedDataReady] = useState(false);
+  const skipInitialSharedSave = useRef(false);
+  const lastSharedSnapshot = useRef('');
+
+  const applySharedData = (data: Record<string, any>) => {
+    if (data.treasures) setTreasures(data.treasures);
+    if (data.experiences) setExperiences(data.experiences);
+    if (data.restaurants) setRestaurants(data.restaurants);
+    if (data.hotels) setHotels(data.hotels);
+    if (data.articles) setArticles(data.articles);
+    if (data.events) setEvents(data.events);
+    if (data.gallery) setGallery(data.gallery);
+    if (data.media) setMedia(data.media);
+    if (data.settings) setSettings({ ...INITIAL_SETTINGS, ...data.settings });
+    lastSharedSnapshot.current = JSON.stringify(data);
+  };
+
+  useEffect(() => {
+    let active = true;
+    const loadSharedData = async () => {
+      try {
+        const response = await fetch('/api/state', { cache: 'no-store' });
+        if (!response.ok) throw new Error('Could not load shared site data');
+        const data = await response.json();
+        if (!active) return;
+        if (data.hasSavedData) {
+          applySharedData(data);
+          skipInitialSharedSave.current = true;
+        }
+        setSharedDataReady(true);
+      } catch (error) {
+        console.error('Shared site data is unavailable', error);
+      }
+    };
+    void loadSharedData();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!sharedDataReady || isAdmin) return;
+    const refresh = async () => {
+      try {
+        const response = await fetch('/api/state', { cache: 'no-store' });
+        if (!response.ok) return;
+        const data = await response.json();
+        const snapshot = JSON.stringify(data);
+        if (data.hasSavedData && snapshot !== lastSharedSnapshot.current) applySharedData(data);
+      } catch { /* Keep the last loaded public content while offline. */ }
+    };
+    const timer = window.setInterval(refresh, 10000);
+    return () => window.clearInterval(timer);
+  }, [sharedDataReady, isAdmin]);
 
   useEffect(() => {
     let active = true;
@@ -319,6 +369,27 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsAdminState(val);
     if (!val) localStorage.removeItem(STORAGE_KEYS.AUTH);
   };
+
+  // Save admin edits to the shared Vercel-backed store.
+  useEffect(() => {
+    if (!sharedDataReady || !isAdmin) return;
+    if (skipInitialSharedSave.current) {
+      skipInitialSharedSave.current = false;
+      return;
+    }
+    const payload = { treasures, experiences, restaurants, hotels, articles, events, gallery, media, settings };
+    const timer = window.setTimeout(() => {
+      fetch('/api/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).then((response) => {
+        if (!response.ok) throw new Error('Shared site data save failed');
+        lastSharedSnapshot.current = JSON.stringify(payload);
+      }).catch((error) => console.error('Could not save shared site data', error));
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [sharedDataReady, isAdmin, treasures, experiences, restaurants, hotels, articles, events, gallery, media, settings]);
 
   // Sync state to LocalStorage
   useEffect(() => {
