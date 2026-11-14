@@ -229,6 +229,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const skipInitialSharedSave = useRef(false);
   const lastSharedSnapshot = useRef('');
 
+  const snapshotOf = (data: Record<string, any>) => JSON.stringify({
+    treasures: data.treasures,
+    experiences: data.experiences,
+    restaurants: data.restaurants,
+    hotels: data.hotels,
+    articles: data.articles,
+    events: data.events,
+    gallery: data.gallery,
+    media: data.media,
+    settings: data.settings,
+  });
+
   const applySharedData = (data: Record<string, any>) => {
     if (data.treasures) setTreasures(data.treasures);
     if (data.experiences) setExperiences(data.experiences);
@@ -239,7 +251,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (data.gallery) setGallery(data.gallery);
     if (data.media) setMedia(data.media);
     if (data.settings) setSettings({ ...INITIAL_SETTINGS, ...data.settings });
-    lastSharedSnapshot.current = JSON.stringify(data);
+    lastSharedSnapshot.current = snapshotOf(data);
   };
 
   useEffect(() => {
@@ -270,7 +282,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const response = await fetch('/api/state', { cache: 'no-store' });
         if (!response.ok) return;
         const data = await response.json();
-        const snapshot = JSON.stringify(data);
+        const snapshot = snapshotOf(data);
         if (data.hasSavedData && snapshot !== lastSharedSnapshot.current) applySharedData(data);
       } catch { /* Keep the last loaded public content while offline. */ }
     };
@@ -385,7 +397,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         body: JSON.stringify(payload),
       }).then((response) => {
         if (!response.ok) throw new Error('Shared site data save failed');
-        lastSharedSnapshot.current = JSON.stringify(payload);
+        lastSharedSnapshot.current = snapshotOf(payload);
       }).catch((error) => console.error('Could not save shared site data', error));
     }, 500);
     return () => window.clearTimeout(timer);
