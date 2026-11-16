@@ -8,7 +8,7 @@ const STATE_PATH = 'taiba/site-state.json';
 export default async function handler(req: AdminApiRequest, res: ServerResponse): Promise<void> {
   if (req.method === 'GET') {
     try {
-      const blob = await get(STATE_PATH, { access: 'private' });
+      const blob = await get(STATE_PATH, { access: 'private', useCache: false });
       if (!blob) {
         sendJson(res, 200, { hasSavedData: false }, { 'Cache-Control': 'no-store' });
         return;
