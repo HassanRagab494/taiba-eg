@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   Language,
   Treasure,
@@ -18,7 +18,13 @@ import { INITIAL_ARTICLES, INITIAL_EVENTS } from '../data/articlesAndEvents';
 import { INITIAL_SETTINGS, INITIAL_GALLERY, INITIAL_MEDIA_FILES } from '../data/galleryAndSettings';
 import { UI_TRANSLATIONS } from '../data/translations';
 
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
 interface DataContextType {
+  sharedReady: boolean;
+  saveStatus: SaveStatus;
+  saveError: string;
+  retrySharedSave: () => void;
   language: Language;
   setLanguage: (lang: Language) => void;
   t: (key: string) => string;
@@ -63,6 +69,43 @@ interface DataContextType {
   toggleTheme: () => void;
   uploadMediaFile: (file: File, folder?: string) => Promise<MediaFile>;
   resetToDefaults: () => void;
+}
+
+type SharedContent = {
+  treasures: DataContextType['treasures'];
+  experiences: DataContextType['experiences'];
+  restaurants: DataContextType['restaurants'];
+  hotels: DataContextType['hotels'];
+  articles: DataContextType['articles'];
+  events: DataContextType['events'];
+  gallery: DataContextType['gallery'];
+  media: DataContextType['media'];
+  settings: DataContextType['settings'];
+};
+
+const DRAFT_KEY = 'taiba_pending_content_v2';
+
+async function draftStorage<T>(
+  mode: IDBTransactionMode,
+  action: (store: IDBObjectStore) => IDBRequest<T>,
+): Promise<T> {
+  const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open('taiba-content', 1);
+    request.onupgradeneeded = () => request.result.createObjectStore('drafts');
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  try {
+    return await new Promise<T>((resolve, reject) => {
+      const tx = db.transaction('drafts', mode);
+      const request = action(tx.objectStore('drafts'));
+      tx.oncomplete = () => resolve(request.result);
+      tx.onabort = () => reject(tx.error);
+      tx.onerror = () => reject(tx.error);
+    });
+  } finally {
+    db.close();
+  }
 }
 
 const DataContext = createContext<DataContextType | null>(null);
@@ -226,70 +269,141 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [isAdmin, setIsAdminState] = useState<boolean>(() => false);
   const [sharedDataReady, setSharedDataReady] = useState(false);
-  const skipInitialSharedSave = useRef(false);
-  const pendingSharedSave = useRef(false);
-  const lastSharedSnapshot = useRef('');
+  const [sharedReady, setSharedReady] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [saveError, setSaveError] = useState('');
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const pending = useRef<string | null>(null);
+  const writing = useRef(false);
+  const editGeneration = useRef(0);
+  const lastSnapshot = useRef('');
+  const storageQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const content: SharedContent = { treasures, experiences, restaurants, hotels, articles, events, gallery, media, settings };
 
-  const snapshotOf = (data: Record<string, any>) => JSON.stringify({
-    treasures: data.treasures,
-    experiences: data.experiences,
-    restaurants: data.restaurants,
-    hotels: data.hotels,
-    articles: data.articles,
-    events: data.events,
-    gallery: data.gallery,
-    media: data.media,
-    settings: data.settings,
-  });
+  const queueDraft = (body: string | null) => {
+    storageQueue.current = storageQueue.current.then(async () => {
+      if (body === null) await draftStorage('readwrite', (store) => store.delete(DRAFT_KEY));
+      else await draftStorage('readwrite', (store) => store.put(body, DRAFT_KEY));
+    }).catch((error) => console.warn('Could not persist the pending edit locally', error));
+  };
 
-  const applySharedData = (data: Record<string, any>) => {
-    if (data.treasures) setTreasures(data.treasures);
-    if (data.experiences) setExperiences(data.experiences);
-    if (data.restaurants) setRestaurants(data.restaurants);
-    if (data.hotels) setHotels(data.hotels);
-    if (data.articles) setArticles(data.articles);
-    if (data.events) setEvents(data.events);
-    if (data.gallery) setGallery(data.gallery);
-    if (data.media) setMedia(data.media);
-    if (data.settings) setSettings({ ...INITIAL_SETTINGS, ...data.settings });
-    lastSharedSnapshot.current = snapshotOf(data);
+  const applySharedData = (data: Partial<SharedContent>) => {
+    const next = { ...content, ...data, settings: { ...INITIAL_SETTINGS, ...(data.settings ?? content.settings) } };
+    setTreasures(next.treasures);
+    setExperiences(next.experiences);
+    setRestaurants(next.restaurants);
+    setHotels(next.hotels);
+    setArticles(next.articles);
+    setEvents(next.events);
+    setGallery(next.gallery);
+    setMedia(next.media);
+    setSettings(next.settings);
+    lastSnapshot.current = JSON.stringify({ treasures: next.treasures, experiences: next.experiences, restaurants: next.restaurants, hotels: next.hotels, articles: next.articles, events: next.events, gallery: next.gallery, media: next.media, settings: next.settings });
+  };
+
+  const sendPending = async () => {
+    if (!isAdmin || writing.current || pending.current === null) return;
+    writing.current = true;
+    setSaveStatus('saving');
+    setSaveError('');
+    try {
+      while (pending.current !== null) {
+        const body: string = pending.current;
+        const response = await fetch('/api/state', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        });
+        if (!response.ok) throw new Error(String(response.status));
+        if (pending.current === body) {
+          pending.current = null;
+          queueDraft(null);
+        }
+      }
+      setSaveStatus('saved');
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : '');
+      setSaveStatus('error');
+    } finally {
+      writing.current = false;
+    }
   };
 
   useEffect(() => {
     let active = true;
-    const loadSharedData = async () => {
+    let reading = false;
+    const refresh = async () => {
+      if (reading || pending.current !== null) return;
+      reading = true;
+      const generation = editGeneration.current;
       try {
         const response = await fetch('/api/state', { cache: 'no-store' });
-        if (!response.ok) throw new Error('Could not load shared site data');
-        const data = await response.json();
-        if (!active) return;
-        if (data.hasSavedData) {
-          applySharedData(data);
-          skipInitialSharedSave.current = true;
-        }
+        if (!response.ok) throw new Error(String(response.status));
+        const { hasSavedData, ...data } = await response.json();
+        if (!active || pending.current !== null || generation !== editGeneration.current) return;
+        if (hasSavedData && JSON.stringify(data) !== lastSnapshot.current) applySharedData(data);
         setSharedDataReady(true);
-      } catch (error) {
-        console.error('Shared site data is unavailable', error);
+      } catch {
+        // The next refresh retries a temporarily unavailable storage connection.
+      } finally {
+        reading = false;
       }
     };
-    void loadSharedData();
-    return () => { active = false; };
-  }, []);
+    void refresh();
+    const timer = window.setInterval(refresh, 10000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [loadAttempt]);
 
   useEffect(() => {
-    if (!sharedDataReady) return;
-    const refresh = async () => {
-      try {
-        const response = await fetch('/api/state', { cache: 'no-store' });
-        if (!response.ok) return;
-        const data = await response.json();
-        const snapshot = snapshotOf(data);
-        if (data.hasSavedData && snapshot !== lastSharedSnapshot.current && !pendingSharedSave.current) applySharedData(data);
-      } catch { /* Keep the last loaded public content while offline. */ }
+    if (!isAdmin || !sharedDataReady) return;
+    let active = true;
+    void storageQueue.current.then(() => draftStorage('readonly', (store) => store.get(DRAFT_KEY)))
+      .then((draft) => {
+        if (!active || typeof draft !== 'string') return;
+        applySharedData(JSON.parse(draft));
+        ++editGeneration.current;
+        pending.current = lastSnapshot.current;
+        void sendPending();
+      })
+      .catch((error) => console.warn('Could not recover a pending edit', error))
+      .finally(() => { if (active) setSharedReady(true); });
+    return () => { active = false; };
+  }, [isAdmin, sharedDataReady]);
+
+  useLayoutEffect(() => {
+    const snapshot = JSON.stringify(content);
+    if (snapshot === lastSnapshot.current) return;
+    lastSnapshot.current = snapshot;
+    if (!sharedReady || !isAdmin) return;
+
+    ++editGeneration.current;
+    pending.current = snapshot;
+    queueDraft(snapshot);
+    void sendPending();
+  }, [sharedReady, isAdmin, treasures, experiences, restaurants, hotels, articles, events, gallery, media, settings]);
+
+  useEffect(() => {
+    const confirmReload = (event: BeforeUnloadEvent) => {
+      if (pending.current === null) return;
+      event.preventDefault();
+      event.returnValue = '';
     };
-    const timer = window.setInterval(refresh, 10000);
-    return () => window.clearInterval(timer);
-  }, [sharedDataReady, isAdmin]);
+    const retryOnline = () => { void sendPending(); };
+    window.addEventListener('beforeunload', confirmReload);
+    window.addEventListener('online', retryOnline);
+    return () => {
+      window.removeEventListener('beforeunload', confirmReload);
+      window.removeEventListener('online', retryOnline);
+    };
+  }, [isAdmin]);
+
+  const retrySharedSave = () => {
+    if (pending.current !== null) void sendPending();
+    else setLoadAttempt((attempt) => attempt + 1);
+  };
 
   useEffect(() => {
     let active = true;
@@ -380,34 +494,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const setIsAdmin = (val: boolean) => {
     setIsAdminState(val);
+    if (!val) setSharedReady(false);
     if (!val) localStorage.removeItem(STORAGE_KEYS.AUTH);
   };
-
-  // Save admin edits to the shared Vercel-backed store.
-  useEffect(() => {
-    if (!sharedDataReady || !isAdmin) return;
-    if (skipInitialSharedSave.current) {
-      skipInitialSharedSave.current = false;
-      return;
-    }
-    const payload = { treasures, experiences, restaurants, hotels, articles, events, gallery, media, settings };
-    pendingSharedSave.current = true;
-    const timer = window.setTimeout(() => {
-      fetch('/api/state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      }).then((response) => {
-        if (!response.ok) throw new Error('Shared site data save failed');
-        lastSharedSnapshot.current = snapshotOf(payload);
-        pendingSharedSave.current = false;
-      }).catch((error) => {
-        pendingSharedSave.current = false;
-        console.error('Could not save shared site data', error);
-      });
-    }, 500);
-    return () => window.clearTimeout(timer);
-  }, [sharedDataReady, isAdmin, treasures, experiences, restaurants, hotels, articles, events, gallery, media, settings]);
 
   // Sync state to LocalStorage
   useEffect(() => {
@@ -580,6 +669,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toggleTheme,
         uploadMediaFile,
         resetToDefaults,
+        sharedReady: isAdmin && sharedReady,
+        saveStatus,
+        saveError,
+        retrySharedSave,
       }}
     >
       {children}
@@ -594,3 +687,4 @@ export const useData = () => {
   }
   return context;
 };
+
