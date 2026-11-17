@@ -171,6 +171,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
     setSettings,
     uploadMediaFile,
     resetToDefaults,
+    sharedReady,
+    saveStatus,
+    saveError,
+    retrySharedSave,
   } = useData();
 
   // Login form state
@@ -478,6 +482,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
           <div className="flex items-center gap-3">
             <button
               onClick={handleLogout}
+              disabled={saveStatus === 'saving'}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-200 hover:bg-rose-50 hover:text-rose-600 text-xs text-stone-600 transition-colors cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -523,7 +528,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
         </div>
       </header>
 
+      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-3 text-sm" role="status">
+        {!sharedReady ? (
+          <span>{language === 'ar' ? 'جارٍ تحميل محتوى الموقع…' : 'Loading site content…'}{' '}
+            <button className="underline" onClick={retrySharedSave}>{language === 'ar' ? 'إعادة المحاولة' : 'Retry'}</button>
+          </span>
+        ) : saveStatus === 'saving' ? (
+          <span>{language === 'ar' ? 'جارٍ حفظ التعديلات…' : 'Saving changes…'}</span>
+        ) : saveStatus === 'saved' ? (
+          <span className="text-emerald-700">{language === 'ar' ? 'اتحفظت التعديلات على الموقع' : 'Changes saved to the site'}</span>
+        ) : saveStatus === 'error' ? (
+          <span className="text-rose-700">
+            {saveError === '413'
+              ? (language === 'ar' ? 'حجم التعديلات أكبر من الحد المسموح للحفظ.' : 'The changes exceed the upload size limit.')
+              : (language === 'ar' ? 'الحفظ على الموقع فشل.' : 'Could not save the changes to the site.')}{' '}
+            <button className="underline" onClick={retrySharedSave}>{language === 'ar' ? 'إعادة المحاولة' : 'Retry'}</button>
+          </span>
+        ) : null}
+      </div>
+
       {/* Main Admin Workspace */}
+      {sharedReady && (
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-8">
         
         {/* ============================================================== */}
@@ -2990,6 +3015,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
         )}
 
       </main>
+      )}
     </div>
   );
 };
+
