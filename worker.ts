@@ -34,7 +34,9 @@ async function state(request: Request, env: Env): Promise<Response> {
     return Response.json(row ? { ...JSON.parse(row.value), hasSavedData: true } : { hasSavedData: false }, { headers: { 'Cache-Control': 'no-store' } });
   }
   if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
-  if (!(await validSession(request, configuredPassword(env))) return Response.json({ error: 'Authentication required.' }, { status: 401 });
+  if (!(await validSession(request, configuredPassword(env)))) {
+    return Response.json({ error: 'Authentication required.' }, { status: 401 });
+  }
   const value = await request.text();
   await env.DB.prepare('INSERT INTO site_state (id, value) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET value = excluded.value').bind(value).run();
   return Response.json({ success: true });
