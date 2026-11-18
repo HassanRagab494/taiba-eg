@@ -7,6 +7,7 @@ interface Env {
 }
 
 const COOKIE = 'taiba_admin_session';
+const configuredPassword = (env: Env) => env.ADMIN_PASSWORD.trim();
 
 async function token(password: string): Promise<string> {
   const expires = Math.floor(Date.now() / 1000) + 60 * 60 * 12;
@@ -33,7 +34,7 @@ async function state(request: Request, env: Env): Promise<Response> {
     return Response.json(row ? { ...JSON.parse(row.value), hasSavedData: true } : { hasSavedData: false }, { headers: { 'Cache-Control': 'no-store' } });
   }
   if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
-  if (!(await validSession(request, env.ADMIN_PASSWORD))) return Response.json({ error: 'Authentication required.' }, { status: 401 });
+  if (!(await validSession(request, configuredPassword(env))) return Response.json({ error: 'Authentication required.' }, { status: 401 });
   const value = await request.text();
   await env.DB.prepare('INSERT INTO site_state (id, value) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET value = excluded.value').bind(value).run();
   return Response.json({ success: true });
@@ -45,11 +46,11 @@ export default {
     if (url.pathname === '/api/state') return state(request, env);
     if (url.pathname === '/api/auth/login' && request.method === 'POST') {
       const body = await request.json() as { password?: string };
-      if (!body.password || body.password !== env.ADMIN_PASSWORD) return Response.json({ success: false }, { status: 401 });
-      const value = await token(env.ADMIN_PASSWORD);
+      if (!body.password || body.password.trim() !== configuredPassword(env)) return Response.json({ success: false }, { status: 401 });
+      const value = await token(configuredPassword(env));
       return Response.json({ success: true }, { headers: { 'Set-Cookie': `${COOKIE}=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=43200` } });
     }
-    if (url.pathname === '/api/auth/session') return Response.json({ authenticated: await validSession(request, env.ADMIN_PASSWORD) }, { headers: { 'Cache-Control': 'no-store' } });
+    if (url.pathname === '/api/auth/session') return Response.json({ authenticated: await validSession(request, configuredPassword(env)) }, { headers: { 'Cache-Control': 'no-store' } });
     if (url.pathname === '/api/auth/logout') return Response.json({ success: true }, { headers: { 'Set-Cookie': `${COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0` } });
     return env.ASSETS.fetch(request);
   },
