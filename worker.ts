@@ -7,7 +7,7 @@ interface Env {
 }
 
 const COOKIE = 'taiba_admin_session';
-const configuredPassword = (env: Env) => env.ADMIN_PASSWORD.trim();
+const configuredPassword = (env: Env) => (env.ADMIN_PASSWORD ?? '').trim();
 
 async function token(password: string): Promise<string> {
   const expires = Math.floor(Date.now() / 1000) + 60 * 60 * 12;
