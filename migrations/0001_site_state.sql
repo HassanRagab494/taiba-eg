@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS site_state (
+  id INTEGER PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
