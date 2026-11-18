@@ -1,0 +1,13 @@
+name = "taiba-eg"
+main = "worker.ts"
+compatibility_date = "2026-11-18"
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "taiba-db"
+database_id = "75eb8116-66fa-4226-bdcb-97d88eb3af20"
+
