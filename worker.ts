@@ -9,8 +9,7 @@ interface Env {
 const COOKIE = 'taiba_admin_session';
 const configuredPassword = (env: Env) => (env.ADMIN_PASSWORD ?? '').trim();
 
-async function token(password: string): Promise<string> {
-  const expires = Math.floor(Date.now() / 1000) + 60 * 60 * 12;
+async function token(password: string, expires = Math.floor(Date.now() / 1000) + 60 * 60 * 12): Promise<string> {
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(String(expires)));
   const bytes = new Uint8Array(signature);
@@ -23,8 +22,8 @@ async function validSession(request: Request, password: string): Promise<boolean
   const cookie = request.headers.get('Cookie')?.split(';').map(value => value.trim()).find(value => value.startsWith(`${COOKIE}=`));
   if (!cookie || !password) return false;
   const [expires, signature] = cookie.slice(COOKIE.length + 1).split('.');
-  if (!expires || !signature || Number(expires) <= Math.floor(Date.now() / 1000)) return false;
-  const expected = (await token(password)).split('.')[1];
+  if (!expires || !signature || !Number.isSafeInteger(Number(expires)) || Number(expires) <= Math.floor(Date.now() / 1000)) return false;
+  const expected = (await token(password, Number(expires))).split('.')[1];
   return signature === expected;
 }
 
@@ -57,4 +56,3 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
-
