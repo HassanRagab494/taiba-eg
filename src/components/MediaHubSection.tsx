@@ -1,3 +1,4 @@
+import { SiteImage } from './SiteImage';
 import React, { useState, useRef } from 'react';
 import { useData } from '../context/DataContext';
 import {
@@ -193,7 +194,7 @@ export const MediaHubSection: React.FC = () => {
                   className="taiba-card w-[320px] sm:w-[420px] shrink-0 snap-start rounded-2xl overflow-hidden flex flex-col group bg-white border border-[#E8DFD0] shadow-xs hover:shadow-xl transition-all"
                 >
                   <div className="relative aspect-[16/10] overflow-hidden bg-stone-100 shrink-0">
-                    <img
+                    <SiteImage
                       src={art.coverImage}
                       alt={art.title[language] || art.title.ar}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -295,7 +296,7 @@ export const MediaHubSection: React.FC = () => {
                 >
                   <div className="space-y-3">
                     <div className="relative aspect-[16/10] overflow-hidden bg-stone-100">
-                      <img
+                      <SiteImage
                         src={ev.image}
                         alt={ev.title[language] || ev.title.ar}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -396,7 +397,7 @@ export const MediaHubSection: React.FC = () => {
                   onClick={() => setLightboxItem(item)}
                   className="group relative w-[280px] sm:w-[340px] lg:w-[380px] aspect-[4/3] shrink-0 snap-start rounded-2xl overflow-hidden bg-stone-100 border border-[#E8DFD0] shadow-xs hover:shadow-xl transition-all cursor-pointer"
                 >
-                  <img
+                  <SiteImage
                     src={item.imageUrl}
                     alt={item.title[language] || item.title.ar}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
@@ -444,7 +445,7 @@ export const MediaHubSection: React.FC = () => {
               </button>
 
               <div className="w-full max-h-[75vh] flex items-center justify-center overflow-hidden rounded-2xl bg-black/50">
-                <img
+                <SiteImage
                   src={lightboxItem.imageUrl}
                   alt={lightboxItem.title[language] || lightboxItem.title.ar}
                   className="max-w-full max-h-[75vh] object-contain rounded-2xl"

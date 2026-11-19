@@ -184,6 +184,8 @@ export interface SiteSettings {
   natureSubtitle?: LocalizedString;
   cultureTitle?: LocalizedString;
   cultureSubtitle?: LocalizedString;
+  natureCards?: SectionCard[];
+  cultureCards?: SectionCard[];
   tasteTitle?: LocalizedString;
   tasteSubtitle?: LocalizedString;
   stayTitle?: LocalizedString;
@@ -196,6 +198,14 @@ export interface SiteSettings {
   eventsSubtitle?: LocalizedString;
   galleryTitle?: LocalizedString;
   gallerySubtitle?: LocalizedString;
+}
+
+export interface SectionCard {
+  id?: string;
+  title: LocalizedString;
+  desc: LocalizedString;
+  image: string;
+  tag?: Partial<LocalizedString>;
 }
 
 export interface MediaFile {

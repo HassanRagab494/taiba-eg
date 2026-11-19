@@ -1,3 +1,4 @@
+import { SiteImage } from './SiteImage';
 import React, { useState, useMemo, useRef } from 'react';
 import { useData } from '../context/DataContext';
 import { Treasure, BankLocation } from '../types';
@@ -242,7 +243,7 @@ export const TreasuresSection: React.FC = () => {
               >
                 {/* Image Container with Fallback */}
                 <div className="relative aspect-[16/10] overflow-hidden bg-stone-100">
-                  <img
+                  <SiteImage
                     src={item.mainImage}
                     alt={item.name[language] || item.name.ar}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"

@@ -1,3 +1,4 @@
+import { SiteImage } from './SiteImage';
 import React, { useState, useRef } from 'react';
 import { useData } from '../context/DataContext';
 import { Utensils, Hotel, Star, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -133,7 +134,7 @@ export const TasteAndStaySection: React.FC = () => {
                 >
                   <div className="space-y-3">
                     <div className="relative aspect-[16/10] overflow-hidden bg-stone-100">
-                      <img
+                      <SiteImage
                         src={rest.image}
                         alt={rest.name[language] || rest.name.ar}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -236,7 +237,7 @@ export const TasteAndStaySection: React.FC = () => {
                 >
                   <div className="space-y-3">
                     <div className="relative aspect-[16/10] overflow-hidden bg-stone-100">
-                      <img
+                      <SiteImage
                         src={hotel.image}
                         alt={hotel.name[language] || hotel.name.ar}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"

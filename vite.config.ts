@@ -2,10 +2,25 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
+import sharp from 'sharp';
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      {
+        name: 'optimized-local-images',
+        enforce: 'pre',
+        apply: 'build',
+        async load(id) {
+          if (!/\/assets\/images\/.*\.(jpe?g|png)\?url$/.test(id.replace(/\\/g, '/'))) return null;
+          const filename = id.slice(0, -4);
+          const source = await sharp(filename).rotate().resize({ width: 1600, withoutEnlargement: true }).webp({ quality: 78 }).toBuffer();
+          const ref = this.emitFile({ type: 'asset', name: path.basename(filename).replace(/\.[^.]+$/, '.webp'), source });
+          return `export default import.meta.ROLLUP_FILE_URL_${ref};`;
+        },
+      },
+      react(), tailwindcss(),
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

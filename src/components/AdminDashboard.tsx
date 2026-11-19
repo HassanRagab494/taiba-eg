@@ -1,3 +1,7 @@
+import { SectionCardsEditor } from './SectionCardsEditor';
+import { DEFAULT_NATURE_CARDS, DEFAULT_CULTURE_CARDS } from '../data/sectionCards';
+import { compressImage } from '../utils/images';
+import { SiteImage } from './SiteImage';
 import React, { useState, useRef } from 'react';
 import { useData } from '../context/DataContext';
 import {
@@ -77,14 +81,7 @@ const ImageUploadControl: React.FC<{
     if (!file) return;
 
     setIsProcessing(true);
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      onImageChanged(dataUrl);
-      setIsProcessing(false);
-    };
-    reader.onerror = () => setIsProcessing(false);
-    reader.readAsDataURL(file);
+    void compressImage(file).then(onImageChanged).catch(error => alert(error.message)).finally(() => { setIsProcessing(false); e.target.value = ''; });
   };
 
   return (
@@ -97,7 +94,7 @@ const ImageUploadControl: React.FC<{
       <div className="flex items-center gap-3">
         <div className="w-16 h-16 rounded-xl overflow-hidden border border-[#E8DFD0] bg-stone-100 shrink-0 relative shadow-inner">
           {currentUrl ? (
-            <img src={currentUrl} alt="Preview" className="w-full h-full object-cover" />
+            <SiteImage src={currentUrl} alt="Preview" className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-stone-400 text-[10px]">
               {language === 'ar' ? 'بلا صورة' : 'No image'}
@@ -184,7 +181,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
 
   // Active admin tab
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'homepage' | 'navbar_settings' | 'treasures' | 'experiences' | 'hospitality' | 'articles_events' | 'gallery' | 'media' | 'guide' | 'planner' | 'settings' | 'backup'
+    'overview' | 'homepage' | 'navbar_settings' | 'treasures' | 'experiences' | 'nature' | 'culture' | 'hospitality' | 'articles_events' | 'gallery' | 'media' | 'guide' | 'planner' | 'settings' | 'backup'
   >('overview');
 
   // Sub-tabs
@@ -499,6 +496,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
             { id: 'navbar_settings', label: language === 'ar' ? 'شريط المهام والشعار' : 'Taskbar & Logo', icon: Sliders },
             { id: 'treasures', label: language === 'ar' ? 'كنوز طيبة (55+)' : 'Treasures', icon: Compass },
             { id: 'experiences', label: language === 'ar' ? 'التجارب والأنشطة' : 'Experiences', icon: Sparkles },
+            { id: 'nature', label: language === 'ar' ? 'الطبيعة والنيل' : 'Nature & Nile', icon: Compass },
+            { id: 'culture', label: language === 'ar' ? 'ثقافة طيبة' : 'Theban Culture', icon: BookOpen },
             { id: 'hospitality', label: language === 'ar' ? 'المطاعم والفنادق' : 'Taste & Stay', icon: Utensils },
             { id: 'articles_events', label: language === 'ar' ? 'الحكايات والفعاليات' : 'Tales & Events', icon: BookOpen },
             { id: 'planner', label: language === 'ar' ? 'مخطط الرحلات الذكي' : 'Trip Planner', icon: Calendar },
@@ -1068,7 +1067,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
                 <div className="p-4 rounded-xl bg-[#F7F2E8] border border-[#E8DFD0] flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     {settings.logoUrl ? (
-                      <img
+                      <SiteImage
                         src={settings.logoUrl}
                         alt="TAIBA Preview"
                         style={{ width: `${settings.logoWidth || 40}px` }}
@@ -1454,7 +1453,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
                         <tr key={item.id} className="hover:bg-[#F7F2E8]/40 transition-colors">
                           <td className="p-3">
                             <div className="relative group w-12 h-12 rounded-lg overflow-hidden border border-[#E8DFD0]">
-                              <img src={item.mainImage} alt={item.name.ar} className="w-full h-full object-cover" />
+                              <SiteImage src={item.mainImage} alt={item.name.ar} className="w-full h-full object-cover" />
                               {/* Quick Image Upload Button right on thumbnail */}
                               <label
                                 className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
@@ -1525,6 +1524,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
         {/* ============================================================== */}
         {/* EXPERIENCES MANAGEMENT TAB                                     */}
         {/* ============================================================== */}
+        {(activeTab === 'nature' || activeTab === 'culture') && (
+          <SectionCardsEditor
+            language={language}
+            cards={activeTab === 'nature'
+              ? settings.natureCards ?? DEFAULT_NATURE_CARDS.map(({ icon, ...card }) => card)
+              : settings.cultureCards ?? DEFAULT_CULTURE_CARDS.map(({ icon, ...card }) => card)}
+            onChange={cards => setSettings(prev => ({ ...prev, [activeTab === 'nature' ? 'natureCards' : 'cultureCards']: cards }))}
+          />
+        )}
+
         {activeTab === 'experiences' && (
           <div className="space-y-6 animate-in fade-in duration-150">
             {/* Section Title Editor */}
@@ -1701,7 +1710,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
                 <div key={exp.id} className="bg-white rounded-2xl border border-[#E8DFD0] overflow-hidden p-4 space-y-3 flex flex-col justify-between">
                   <div className="space-y-2">
                     <div className="relative aspect-video rounded-xl overflow-hidden bg-stone-100 group">
-                      <img src={exp.image} alt={exp.title.ar} className="w-full h-full object-cover" />
+                      <SiteImage src={exp.image} alt={exp.title.ar} className="w-full h-full object-cover" />
                       {/* Direct upload badge */}
                       <label
                         className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
@@ -2021,7 +2030,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
                   <div key={rest.id} className="bg-white rounded-2xl border border-[#E8DFD0] overflow-hidden p-4 space-y-2 flex flex-col justify-between">
                     <div className="space-y-2">
                       <div className="relative aspect-video rounded-xl overflow-hidden group">
-                        <img src={rest.image} alt={rest.name.ar} className="w-full h-full object-cover" />
+                        <SiteImage src={rest.image} alt={rest.name.ar} className="w-full h-full object-cover" />
                         <label className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                           <Camera className="w-5 h-5 text-[#C99A42]" />
                           <input
@@ -2058,7 +2067,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
                   <div key={h.id} className="bg-white rounded-2xl border border-[#E8DFD0] overflow-hidden p-4 space-y-2 flex flex-col justify-between">
                     <div className="space-y-2">
                       <div className="relative aspect-video rounded-xl overflow-hidden group">
-                        <img src={h.image} alt={h.name.ar} className="w-full h-full object-cover" />
+                        <SiteImage src={h.image} alt={h.name.ar} className="w-full h-full object-cover" />
                         <label className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                           <Camera className="w-5 h-5 text-[#C99A42]" />
                           <input
@@ -2286,7 +2295,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
                   <div key={art.id} className="bg-white rounded-2xl border border-[#E8DFD0] overflow-hidden p-4 space-y-2 flex flex-col justify-between">
                     <div className="space-y-2">
                       <div className="relative aspect-video rounded-xl overflow-hidden group">
-                        <img src={art.coverImage} alt={art.title.ar} className="w-full h-full object-cover" />
+                        <SiteImage src={art.coverImage} alt={art.title.ar} className="w-full h-full object-cover" />
                         <label className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                           <Camera className="w-5 h-5 text-[#C99A42]" />
                           <input
@@ -2323,7 +2332,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
                   <div key={ev.id} className="bg-white rounded-2xl border border-[#E8DFD0] overflow-hidden p-4 space-y-2 flex flex-col justify-between">
                     <div className="space-y-2">
                       <div className="relative aspect-video rounded-xl overflow-hidden group">
-                        <img src={ev.image} alt={ev.title.ar} className="w-full h-full object-cover" />
+                        <SiteImage src={ev.image} alt={ev.title.ar} className="w-full h-full object-cover" />
                         <label className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                           <Camera className="w-5 h-5 text-[#C99A42]" />
                           <input
@@ -2749,12 +2758,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
               </div>
             </form>
 
+            {/* Edit gallery captions, categories and image sources in place. */}
+            <div className="space-y-4">
+              {gallery.map(item => <div key={item.id} className="bg-white p-4 border rounded-2xl space-y-3">
+                <label className="block">عنوان الصورة ({language})
+                  <input className="block w-full border rounded-lg p-2" value={item.title[language] || ''} onChange={e => setGallery(prev => prev.map(g => g.id === item.id ? { ...g, title: { ...g.title, [language]: e.target.value } } : g))} />
+                </label>
+                <ImageUploadControl currentUrl={item.imageUrl} language={language} onImageChanged={url => setGallery(prev => prev.map(g => g.id === item.id ? { ...g, imageUrl: url } : g))} />
+                <label className="block">التصنيف
+                  <select className="border rounded-lg p-2" value={item.category} onChange={e => setGallery(prev => prev.map(g => g.id === item.id ? { ...g, category: e.target.value as GalleryItem['category'] } : g))}>
+                    {['temples', 'tombs', 'nile', 'nature', 'culture', 'aerial', 'videos'].map(category => <option key={category} value={category}>{category}</option>)}
+                  </select>
+                </label>
+              </div>)}
+            </div>
             {/* Gallery Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {gallery.map((item) => (
                 <div key={item.id} className="bg-white rounded-2xl border border-[#E8DFD0] overflow-hidden group flex flex-col justify-between shadow-xs">
                   <div className="relative aspect-square overflow-hidden bg-stone-100">
-                    <img src={item.imageUrl} alt={item.title.ar} className="w-full h-full object-cover" />
+                    <SiteImage src={item.imageUrl} alt={item.title.ar} className="w-full h-full object-cover" />
                     <span className="absolute top-2 start-2 px-1.5 py-0.5 rounded bg-black/60 text-white text-[9px] uppercase font-mono">
                       {item.category}
                     </span>
@@ -2818,7 +2841,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
               {media.map((file) => (
                 <div key={file.id} className="taiba-card rounded-2xl overflow-hidden bg-white border border-[#E8DFD0] group flex flex-col justify-between">
                   <div className="relative aspect-square overflow-hidden bg-stone-100">
-                    <img src={file.url} alt={file.name} className="w-full h-full object-cover" />
+                    <SiteImage src={file.url} alt={file.name} className="w-full h-full object-cover" />
                     <div className="absolute top-2 start-2 px-1.5 py-0.5 rounded bg-black/60 text-white text-[9px] font-mono">
                       {file.folder}
                     </div>

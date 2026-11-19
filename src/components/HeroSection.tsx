@@ -1,3 +1,4 @@
+import { SiteImage } from './SiteImage';
 import React, { useState, useRef, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import {
@@ -74,8 +75,9 @@ export const HeroSection: React.FC = () => {
     <section id="hero" className="relative overflow-hidden bg-[#183B56] text-[#F7F2E8]">
       {/* Background Image with Measured Scrim */}
       <div className="absolute inset-0 z-0">
-        <img
+        <SiteImage
           src={settings.heroImage || '/src/assets/images/hero_luxor_thebes_nile_1794257299786.jpg'}
+          loading="eager" fetchPriority="high"
           alt="Luxor Thebes Nile Sunset"
           className="w-full h-full object-cover opacity-40 scale-105 transition-transform duration-1000 ease-out"
           referrerPolicy="no-referrer"
@@ -248,7 +250,7 @@ export const HeroSection: React.FC = () => {
                         }}
                         className="flex items-center gap-3 p-2.5 hover:bg-[#F7F2E8] rounded-xl cursor-pointer transition-colors group"
                       >
-                        <img
+                        <SiteImage
                           src={item.mainImage}
                           alt={item.name[language] || item.name.ar}
                           className="w-12 h-12 rounded-lg object-cover shrink-0 border border-stone-200"
@@ -282,7 +284,7 @@ export const HeroSection: React.FC = () => {
                         onClick={() => setIsSearchOpen(false)}
                         className="flex items-center gap-3 p-2.5 hover:bg-[#F7F2E8] rounded-xl cursor-pointer transition-colors group"
                       >
-                        <img
+                        <SiteImage
                           src={exp.image}
                           alt={exp.title[language] || exp.title.ar}
                           className="w-12 h-12 rounded-lg object-cover shrink-0 border border-stone-200"
