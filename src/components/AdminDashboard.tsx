@@ -540,7 +540,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
           <span className="text-rose-700">
             {saveError === '413'
               ? (language === 'ar' ? 'حجم التعديلات أكبر من الحد المسموح للحفظ.' : 'The changes exceed the upload size limit.')
-              : (language === 'ar' ? 'الحفظ على الموقع فشل.' : 'Could not save the changes to the site.')}{' '}
+              : saveError === '401'
+                ? (language === 'ar' ? 'انتهت جلسة الدخول. سجّل الدخول مجددًا؛ التعديلات محفوظة مؤقتًا على جهازك.' : 'Session expired. Sign in again to recover pending edits.')
+                : (language === 'ar' ? `الحفظ على الموقع فشل (${saveError || 'خطأ اتصال'}). التعديلات محفوظة مؤقتًا على جهازك.` : `Could not save (${saveError || 'connection error'}). Edits are retained on this device.`)}{' '}
             <button className="underline" onClick={retrySharedSave}>{language === 'ar' ? 'إعادة المحاولة' : 'Retry'}</button>
           </span>
         ) : null}

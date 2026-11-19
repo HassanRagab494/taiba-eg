@@ -1,5 +1,11 @@
 interface AssetBinding { fetch(request: Request): Promise<Response> }
-interface DatabaseBinding { prepare(query: string): { first<T>(): Promise<T | null>; bind(value: string): { run(): Promise<unknown> } } }
+interface Statement {
+  first<T>(): Promise<T | null>;
+  all<T>(): Promise<{ results: T[] }>;
+  bind(...values: (string | number)[]): Statement;
+  run(): Promise<unknown>;
+}
+interface DatabaseBinding { prepare(query: string): Statement; batch(statements: Statement[]): Promise<unknown> }
 interface Env {
   ASSETS: AssetBinding;
   DB: DatabaseBinding;
@@ -30,14 +36,37 @@ async function validSession(request: Request, password: string): Promise<boolean
 async function state(request: Request, env: Env): Promise<Response> {
   if (request.method === 'GET') {
     const row = await env.DB.prepare('SELECT value FROM site_state WHERE id = 1').first<{ value: string }>();
-    return Response.json(row ? { ...JSON.parse(row.value), hasSavedData: true } : { hasSavedData: false }, { headers: { 'Cache-Control': 'no-store' } });
+    let data = row ? JSON.parse(row.value) : null;
+    if (data?.__storage === 'chunks-v1') {
+      const chunks = await env.DB.prepare('SELECT value FROM site_state_chunks WHERE generation = ? ORDER BY part').bind(data.generation).all<{ value: string }>();
+      if (chunks.results.length !== data.parts) return Response.json({ error: 'Saved data is incomplete.' }, { status: 503 });
+      data = JSON.parse(chunks.results.map(chunk => chunk.value).join(''));
+    }
+    return Response.json(data ? { ...data, hasSavedData: true } : { hasSavedData: false }, { headers: { 'Cache-Control': 'no-store' } });
   }
   if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
   if (!(await validSession(request, configuredPassword(env)))) {
     return Response.json({ error: 'Authentication required.' }, { status: 401 });
   }
   const value = await request.text();
-  await env.DB.prepare('INSERT INTO site_state (id, value) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET value = excluded.value').bind(value).run();
+  try { JSON.parse(value); } catch { return Response.json({ error: 'Invalid JSON.' }, { status: 400 }); }
+  const upsert = (body: string) => env.DB.prepare('INSERT INTO site_state (id, value) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET value = excluded.value').bind(body);
+  if (new TextEncoder().encode(value).length <= 1000000) {
+    await upsert(value).run();
+  } else {
+    // Keep each D1 row below its size limit, including uploaded image data.
+    const size = 400000;
+    const parts = Math.ceil(value.length / size);
+    if (parts > 45) return Response.json({ error: 'Please reduce the uploaded image sizes.' }, { status: 413 });
+    await env.DB.prepare('CREATE TABLE IF NOT EXISTS site_state_chunks (generation TEXT NOT NULL, part INTEGER NOT NULL, value TEXT NOT NULL, created INTEGER NOT NULL, PRIMARY KEY (generation, part))').run();
+    const generation = crypto.randomUUID();
+    const created = Date.now();
+    const statements = Array.from({ length: parts }, (_, part) => env.DB.prepare('INSERT INTO site_state_chunks (generation, part, value, created) VALUES (?, ?, ?, ?)').bind(generation, part, value.slice(part * size, (part + 1) * size), created));
+    statements.push(upsert(JSON.stringify({ __storage: 'chunks-v1', generation, parts })));
+    // D1 batches commit atomically. Keep older revisions for in-flight readers.
+    statements.push(env.DB.prepare('DELETE FROM site_state_chunks WHERE created < ?').bind(created - 86400000));
+    await env.DB.batch(statements);
+  }
   return Response.json({ success: true });
 }
 
