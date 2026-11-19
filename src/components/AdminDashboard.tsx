@@ -1525,6 +1525,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
         {/* EXPERIENCES MANAGEMENT TAB                                     */}
         {/* ============================================================== */}
         {(activeTab === 'nature' || activeTab === 'culture') && (
+          <div className="space-y-5">
+          <div className="bg-white p-5 border rounded-2xl space-y-3">
+            <h3 className="font-bold text-lg">{activeTab === 'nature' ? 'الطبيعة والنيل' : 'ثقافة طيبة'}</h3>
+            <label className="block">عنوان القسم ({language})
+              <input className="block w-full border rounded-lg p-2" value={settings[activeTab === 'nature' ? 'natureTitle' : 'cultureTitle']?.[language] ?? ''} onChange={e => {
+                const key = activeTab === 'nature' ? 'natureTitle' : 'cultureTitle';
+                setSettings(prev => ({ ...prev, [key]: { ...createLocal(''), ...prev[key], [language]: e.target.value } }));
+              }} />
+            </label>
+            <label className="block">الوصف الفرعي ({language})
+              <textarea className="block w-full border rounded-lg p-2" value={settings[activeTab === 'nature' ? 'natureSubtitle' : 'cultureSubtitle']?.[language] ?? ''} onChange={e => {
+                const key = activeTab === 'nature' ? 'natureSubtitle' : 'cultureSubtitle';
+                setSettings(prev => ({ ...prev, [key]: { ...createLocal(''), ...prev[key], [language]: e.target.value } }));
+              }} />
+            </label>
+          </div>
           <SectionCardsEditor
             language={language}
             cards={activeTab === 'nature'
@@ -1532,6 +1548,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToSite }) 
               : settings.cultureCards ?? DEFAULT_CULTURE_CARDS.map(({ icon, ...card }) => card)}
             onChange={cards => setSettings(prev => ({ ...prev, [activeTab === 'nature' ? 'natureCards' : 'cultureCards']: cards }))}
           />
+          </div>
         )}
 
         {activeTab === 'experiences' && (
