@@ -17,6 +17,8 @@ import { INITIAL_RESTAURANTS, INITIAL_HOTELS } from '../data/hospitality';
 import { INITIAL_ARTICLES, INITIAL_EVENTS } from '../data/articlesAndEvents';
 import { INITIAL_SETTINGS, INITIAL_GALLERY, INITIAL_MEDIA_FILES } from '../data/galleryAndSettings';
 import { UI_TRANSLATIONS } from '../data/translations';
+import { compactDocument } from '../utils/compactDocument';
+import { compressImage } from '../utils/images';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -309,10 +311,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       while (pending.current !== null) {
         const body: string = pending.current;
+        let optimized = await compactDocument(body, async image => {
+          const blob = await (await fetch(image)).blob();
+          return compressImage(new File([blob], 'photo', { type: blob.type }), 1200, 0.72);
+        });
+        if (optimized.length > 15000000) {
+          optimized = await compactDocument(optimized, async image => {
+            const blob = await (await fetch(image)).blob();
+            return compressImage(new File([blob], 'photo', { type: blob.type }), 800, 0.65);
+          });
+        }
         const response = await fetch('/api/state', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body,
+          body: optimized,
         });
         if (!response.ok) throw new Error(String(response.status));
         if (pending.current === body) {
